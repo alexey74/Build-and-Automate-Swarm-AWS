@@ -81,7 +81,7 @@
       ec2:
         region: "{{ region }}"
         key_name: "{{  key  }}"
-        instance_type: m3.medium
+        instance_type: {{ instance_type | default('m3.medium') }}
         group_id: "{{group.group_id}}"
         image: "{{base_ami}}"
         wait: yes
