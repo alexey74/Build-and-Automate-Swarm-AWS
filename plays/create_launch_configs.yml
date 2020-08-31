@@ -91,7 +91,7 @@
            swarm_role: node_template
            Name: "{{prefix}}_swarm_template"
         monitoring: yes
-        vpc_subnet_id: subnet-692ccb07
+        vpc_subnet_id: "{{ vpc_zone_ids[0] }}"
         assign_public_ip: no
       register: manager_node_template
       when: hostvars['localhost']['default_node_ip'] is not defined
