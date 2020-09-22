@@ -10,7 +10,7 @@
       delegate_facts: true
       delegate_to: localhost
 
-    - ec2_asg_facts:
+    - ec2_asg_info:
         name: "{{prefix}}-swarm-manager-asg"
       register: asgs
 
@@ -53,7 +53,11 @@
             from_port: 22
             to_port: 22
             cidr_ip: 0.0.0.0/0
-
+        rules_egress:
+         - proto: all
+           from_port: 0
+           to_port: 65535
+           cidr_ip: 0.0.0.0/0
     # Get instance ids for template
 
     - name: Check default node image status
@@ -74,14 +78,69 @@
         - default_node.instances[0] is defined
         - default_node.instances[0].instance_id is defined
         - default_node.instances[0].network_interfaces[0] is defined
+        
+    # Create a simple s3 bucket
+    - s3_bucket:
+          name: "{{ prefix }}-swarm-storage"
+          state: present
 
     # Create nodes if they don't exist
+
+
+    - name: "Create a role and attach a managed policy"
+      iam_role:
+       name: "{{ prefix }}_instance_role"
+       assume_role_policy_document: "{{ lookup('file','SSMService-Trust.policy.json') }}"
+       purge_policies: no
+       managed_policy:
+         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+
+    - name: Create IAM Managed Policy
+      iam_policy:
+          iam_type: role
+          iam_name: "{{ prefix }}_instance_role"
+          policy_name: "SSMInstanceProfileS3Policy"
+          policy_json: |
+           {
+               "Version": "2012-10-17",
+               "Statement": [
+                   {
+                       "Effect": "Allow",
+                       "Action": "s3:GetObject",
+                       "Resource": [
+                           "arn:aws:s3:::aws-ssm-{{region}}/*",
+                           "arn:aws:s3:::aws-windows-downloads-{{region}}/*",
+                           "arn:aws:s3:::amazon-ssm-{{region}}/*",
+                           "arn:aws:s3:::amazon-ssm-packages-{{region}}/*",
+                           "arn:aws:s3:::region-birdwatcher-prod/*",
+                           "arn:aws:s3:::aws-ssm-distributor-file-{{region}}/*",
+                           "arn:aws:s3:::aws-ssm-document-attachments-{{region}}/*",
+                           "arn:aws:s3:::patch-baseline-snapshot-{{region}}/*"
+                       ]
+                   },
+                   {
+                       "Effect": "Allow",
+                       "Action": [
+                           "s3:GetObject",
+                           "s3:PutObject",
+                           "s3:PutObjectAcl", 
+                           "s3:GetEncryptionConfiguration" 
+                       ],
+                       "Resource": [
+                           "arn:aws:s3:::{{ prefix }}-swarm-storage/*",
+                           "arn:aws:s3:::{{ prefix }}-swarm-storage" 
+                       ]
+                   }
+               ]
+           }          
+          state: present
+
 
     - name: Create default node Image
       ec2:
         region: "{{ region }}"
         key_name: "{{  key  }}"
-        instance_type: {{ instance_type | default('m3.medium') }}
+        instance_type: "{{ instance_type | default('m3.medium') }}"
         group_id: "{{group.group_id}}"
         image: "{{base_ami}}"
         wait: yes
@@ -93,6 +152,8 @@
         monitoring: yes
         vpc_subnet_id: "{{ vpc_zone_ids[0] }}"
         assign_public_ip: no
+        instance_profile_name: "{{ prefix }}_instance_role"
+
       register: manager_node_template
       when: hostvars['localhost']['default_node_ip'] is not defined
 
@@ -124,15 +185,21 @@
         ansible_user: centos
         groups: node_template
 
+
 - name: Install Docker & Other Utilities
   hosts: node_template
   become: yes
+  connection: community.aws.aws_ssm
+  vars:
+    ansible_connection: community.aws.aws_ssm
+    ansible_aws_ssm_bucket_name: "{{ prefix }}-swarm-storage"
+    ansible_aws_ssm_region: "{{ region }}"
   tasks:
-
     - shell: |
         export DOCKERURL='{{ docker_url }}'
         sh -c 'echo "$DOCKERURL/centos" > /etc/yum/vars/dockerurl'
         sudo -E yum-config-manager --add-repo "$DOCKERURL/centos/docker-ee.repo"
+      when: docker_url is defined
 
     - yum:
         update_cache: yes
@@ -196,7 +263,7 @@
         key_name: "{{ key }}"
         region: "{{ region }}"
         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
-        instance_type: m4.large
+        instance_type: "{{ instance_type }}"
         user_data_path: "../files/{{org_name}}/user_data_manager.sh"
         assign_public_ip: no
       when: hostvars['localhost']['asg_exists'] == true
@@ -209,7 +276,7 @@
         region: "{{ region }}"
         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
         user_data_path: "../files/{{org_name}}/user_data_worker.sh"
-        instance_type: m4.large
+        instance_type: "{{ instance_type }}"
         assign_public_ip: no
       when: hostvars['localhost']['asg_exists'] == true
 
@@ -232,7 +299,7 @@
         key_name: "{{ key }}"
         region: "{{ region }}"
         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
-        instance_type: m4.large
+        instance_type: "{{ instance_type }}"
         assign_public_ip: no
       when: hostvars['localhost']['asg_exists'] == false
 
@@ -243,7 +310,7 @@
         key_name: "{{ key }}"
         region: "{{ region }}"
         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
-        instance_type: m4.large
+        instance_type: "{{ instance_type }}"
         assign_public_ip: no
       when: hostvars['localhost']['asg_exists'] == false
 
