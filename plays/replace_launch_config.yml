@@ -34,9 +34,10 @@
             cidr_ip: 0.0.0.0/0
 
     - name: Get AMI ID
-      ec2_ami_find:
+      ec2_ami_facts:
         region: "{{ region }}"
-        name: "{{prefix}}-docker-node-template"
+        filters:
+           name: "{{prefix}}-docker-node-template"
       register: ami_found
 
     - name: Define timestamp
@@ -46,41 +47,51 @@
     - set_fact:
         timestamp: "{{epoch.stdout}}"
         asg_exists: true
+        ami_id: "{{ ami_found.images[0].image_id }}"
       delegate_facts: yes
       delegate_to: localhost
 
     - name: create manager launch config (with user_data)
       ec2_lc:
         name: "{{prefix}}-swarm-manager-launcher-{{hostvars['localhost']['timestamp']}}"
-        image_id: "{{ami_found.results[0].ami_id}}"
+        image_id: "{{ami_id}}"
         key_name: "{{ key }}"
         region: "{{ region }}"
         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
-        instance_type: m4.large
-        user_data_path: "../files/{{org_name}}/user_data_manager.sh"
+        instance_type: "{{ instance_type }}"
+        #user_data_path: "../files/{{org_name}}/user_data_manager.sh"
+        user_data: |
+           #!/bin/bash
+           sleep 20
+           docker swarm join --token {{hostvars['localhost']['manager_join_token']}} {{hostvars['localhost']['primary_manager_ip']}}:2377
+        
         assign_public_ip: no
 
     - name: create worker launch config (with user_data)
       ec2_lc:
         name: "{{prefix}}-swarm-worker-launcher-{{hostvars['localhost']['timestamp']}}"
-        image_id: "{{ami_found.results[0].ami_id}}"
+        image_id: "{{ami_id}}"
         key_name: "{{ key }}"
         region: "{{ region }}"
         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
-        user_data_path: "../files/{{org_name}}/user_data_worker.sh"
-        instance_type: m4.large
+        #user_data_path: "../files/{{org_name}}/user_data_worker.sh"
+        instance_type: "{{ instance_type }}"
         assign_public_ip: no
-
-    - name: create dtr launch config (with user_data)
-      ec2_lc:
-        name: "{{prefix}}-swarm-dtr-launcher-{{hostvars['localhost']['timestamp']}}"
-        image_id: "{{ami_found.results[0].ami_id}}"
-        key_name: "{{ key }}"
-        region: "{{ region }}"
-        security_groups: "{{hostvars['localhost']['group']['group_id']}}"
-        user_data_path: "../files/{{org_name}}/user_data_dtr.sh"
-        instance_type: m3.medium
-        assign_public_ip: no
+        user_data: |
+           #!/bin/bash
+           sleep 20
+           docker swarm join --token {{hostvars['localhost']['worker_join_token']}} {{hostvars['localhost']['primary_manager_ip']}}:2377
+        
+#     - name: create dtr launch config (with user_data)
+#       ec2_lc:
+#         name: "{{prefix}}-swarm-dtr-launcher-{{hostvars['localhost']['timestamp']}}"
+#         image_id: "{{ami_id}}"
+#         key_name: "{{ key }}"
+#         region: "{{ region }}"
+#         security_groups: "{{hostvars['localhost']['group']['group_id']}}"
+#         user_data_path: "../files/{{org_name}}/user_data_dtr.sh"
+#         instance_type: m3.medium
+#         assign_public_ip: no
 
 
 

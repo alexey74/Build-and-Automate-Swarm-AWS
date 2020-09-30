@@ -1,0 +1,123 @@
+---
+
+- name: Cleanup
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - ec2_vpc_net_info:
+       filters:
+         cidr: "{{ cidr_vpc }}"
+         #tag:org: "{{ org_name }}"
+      register: vpcs_results
+          
+    - set_fact:
+         vpc_id: "{{ vpcs_results.vpcs[0].vpc_id }}"
+      when: vpcs_results.vpcs | length  
+     
+    - ec2_asg:
+        name: "{{prefix}}-swarm-manager-asg"
+        state: absent
+              
+    - ec2_asg:
+        name: "{{prefix}}-swarm-worker-asg"    
+        state: absent
+        
+    - ec2_lc_find:
+        name_regex: "{{prefix}}-swarm-manager-launcher-*"
+        sort_order: descending
+        region: "{{ region }}"
+        limit: 100
+      register: manager_launch_config
+
+    - ec2_lc_find:
+        name_regex: "{{prefix}}-swarm-worker-launcher-*"
+        sort_order: descending
+        region: "{{ region }}"
+        limit: 100
+      register: worker_launch_config
+      
+    - ec2_lc:
+       name: "{{ item.name }}"
+       state: absent
+      loop: "{{ manager_launch_config.results + worker_launch_config.results }}"
+
+    - ec2_ami_facts:
+        region: "{{ region }}"
+        filters:
+           #"tag:Name": "{{prefix}}-docker-node-template"
+           name: "{{prefix}}-docker-node-template"
+      register: ami_found
+      
+    - ec2_ami:
+       #name: "{{prefix}}-docker-node-template"
+       image_id: "{{ item.image_id }}"
+       state: absent
+      loop: "{{ ami_found.images }}"
+     
+    - name: Check default node image status
+      ec2_instance_facts:
+        region: "{{ region }}"
+        filters:
+          "tag:swarm_role": node_template
+      register: default_node
+  
+    - name: Terminate node_template instances
+      amazon.aws.ec2:
+           state: 'absent'
+           instance_ids: '{{ item.instance_id }}'     
+           wait: true
+           wait_timeout: 900
+      loop: "{{ default_node.instances }}"
+      
+    - ec2_instance_facts:
+         filters:
+            "tag:job": "{{prefix}}_swarm_manager"
+            "instance-state-name": running
+      register: managers
+
+    - name: Terminate manager instances
+      amazon.aws.ec2:
+           state: 'absent'
+           instance_ids: '{{ item.instance_id }}'     
+           wait: true
+           wait_timeout: 900
+      loop: "{{ managers.instances }}"
+
+    - ec2_instance_facts:
+         filters:
+            "tag:job": "{{prefix}}_swarm_worker"
+            "instance-state-name": running
+      register: workers
+
+    - name: Terminate worker instances
+      amazon.aws.ec2:
+           state: 'absent'
+           instance_ids: '{{ item.instance_id }}'     
+           wait: true
+           wait_timeout: 900
+      loop: "{{ workers.instances }}"
+
+    # del s3 bucket
+    - s3_bucket:
+          name: "{{ prefix }}-swarm-storage"
+          state: absent
+          force: yes
+          
+    - ec2_group_info:
+         filters:
+            group-name:  "Docker Swarm Full Trust"
+            vpc-id: "{{ vpc_id }}"
+      register: swarm_ft_sg
+      
+    - ec2_group:
+         group_id: "{{ swarm_ft_sg.security_groups[0].group_id }}"
+         state: absent
+      register: result
+      until: result is success
+      retries: 5
+      delay: 15
+      
+      when: swarm_ft_sg is defined and swarm_ft_sg.security_groups is defined
+           and swarm_ft_sg.security_groups
+
+...

@@ -5,8 +5,8 @@
   register: managers
 
 - add_host:
-    name: "{{item.private_ip_address}}"
-    ansible_user: centos
+    name: "{{item.instance_id}}"
+    ansible_user: ssm-user
     groups: manager_nodes, swarm_nodes
   with_items:
     - "{{managers.instances}}"
@@ -19,8 +19,8 @@
   register: workers
 
 - add_host:
-    name: "{{item.private_ip_address}}"
-    ansible_user: centos
+    name: "{{item.instance_id}}"
+    ansible_user: ssm-user
     groups: worker_nodes, swarm_nodes
   with_items:
     - "{{workers.instances}}"
@@ -32,16 +32,17 @@
   register: dtrs
 
 - add_host:
-    name: "{{item.private_ip_address}}"
-    ansible_user: centos
+    name: "{{item.instance_id}}"
+    ansible_user: ssm-user
     groups: dtr_nodes, swarm_nodes
   with_items:
     - "{{dtrs.instances}}"
 
 - set_fact:
-    first_ucp_ip: "{{managers.instances[0].private_ip_address}}"
-    first_ucp_node: "{{managers.instances[0].private_dns_name}}"
-    first_dtr_ip: "{{dtrs.instances[0].private_ip_address}}"
-    first_dtr_node: "{{dtrs.instances[0].private_dns_name}}"
+    primary_manager_ip: "{{managers.instances[0].private_ip_address}}"
+#    first_ucp_ip: "{{managers.instances[0].private_ip_address}}"
+#    first_ucp_node: "{{managers.instances[0].private_dns_name}}"
+#    first_dtr_ip: "{{dtrs.instances[0].private_ip_address}}"
+#    first_dtr_node: "{{dtrs.instances[0].private_dns_name}}"
   delegate_facts: yes
   delegate_to: localhost
