@@ -29,9 +29,11 @@
       delay: 20
       
     - name: Initialize the docker swarm
-      command: |
+      command: >-
          docker swarm init 
             --advertise-addr={{hostvars['localhost']['primary_manager_ip']}}
+            --task-history-limit 1
+            
       register: command_result
       failed_when: "'Cannot connect' in command_result.stderr"
 

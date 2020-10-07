@@ -157,7 +157,12 @@
         vpc_subnet_id: "{{ vpc_zone_ids[0] }}"
         assign_public_ip: no
         instance_profile_name: "{{ prefix }}_instance_role"
-
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: gp2
+            volume_size: 50
+            delete_on_termination: yes
+            
       register: manager_node_template
       when: hostvars['localhost']['default_node_ip'] is not defined
 
