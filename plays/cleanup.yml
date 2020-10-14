@@ -120,4 +120,5 @@
       when: swarm_ft_sg is defined and swarm_ft_sg.security_groups is defined
            and swarm_ft_sg.security_groups
 
+      ignore_errors: true  # RDS may prevent deletion
 ...
