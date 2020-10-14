@@ -87,7 +87,8 @@
     - s3_bucket:
           name: "{{ prefix }}-swarm-storage"
           state: present
-
+          tags: "{{ s3_bucket_tags | default({}) }}"
+          
     # Create nodes if they don't exist
 
 
@@ -139,8 +140,14 @@
            }          
           state: present
 
+   
 
     - name: Create default node Image
+      vars:
+         internal_ec2_instance_tags: 
+            swarm_role: node_template
+            Name: "{{prefix}}_swarm_template"
+         instance_tags: "{{ ec2_instance_tags | default({}) | combine(internal_ec2_instance_tags) }}"
       ec2:
         region: "{{ region }}"
         key_name: "{{  key  }}"
@@ -150,9 +157,7 @@
         wait: yes
         wait_timeout: 500
         count: 1
-        instance_tags:
-           swarm_role: node_template
-           Name: "{{prefix}}_swarm_template"
+        instance_tags: "{{ instance_tags }}"
         monitoring: yes
         vpc_subnet_id: "{{ vpc_zone_ids[0] }}"
         assign_public_ip: no
@@ -162,7 +167,7 @@
             volume_type: gp2
             volume_size: 50
             delete_on_termination: yes
-            
+            encrypted: yes
       register: manager_node_template
       when: hostvars['localhost']['default_node_ip'] is not defined
 
@@ -186,6 +191,17 @@
         default_node_dns_name: "{{default_node.instances[0].network_interfaces[0].private_dns_name}}"
       when: default_node is defined
 
+    # Check volume is encrypted
+    - ec2_vol_facts:
+       filters: 
+          attachment.instance-id: "{{default_node.instances[0].instance_id}}"
+      register: vol_results
+      
+    - assert:
+       that: item.encrypted
+       fail_msg: "EBS volume {{ item.id }} not encrypted"
+      loop: "{{ vol_results.volumes }}"
+          
     # Define dynamic host groups
 
     - name: Define primary manager host
