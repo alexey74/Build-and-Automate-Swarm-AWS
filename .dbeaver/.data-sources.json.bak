@@ -1,0 +1,95 @@
+{
+	"folders": {},
+	"connections": {
+		"postgres-cockroach-jdbc-174e12f4957-4c0c274e368d9428": {
+			"provider": "postgresql",
+			"driver": "postgres-cockroach-jdbc",
+			"name": "system",
+			"save-password": true,
+			"show-system-objects": true,
+			"read-only": false,
+			"configuration": {
+				"host": "localhost",
+				"port": "26257",
+				"database": "system",
+				"url": "jdbc:postgresql://localhost:26257/system",
+				"type": "dev",
+				"provider-properties": {
+					"@dbeaver-show-non-default-db@": "false",
+					"@dbeaver-show-template-db@": "false",
+					"@dbeaver-show-unavailable-db@": "false",
+					"postgresql.dd.plain.string": "false",
+					"postgresql.dd.tag.string": "false"
+				},
+				"auth-model": "native",
+				"handlers": {}
+			}
+		},
+		"postgres-cockroach-jdbc-174e1322b83-4054ba85d039278f": {
+			"provider": "postgresql",
+			"driver": "postgres-cockroach-jdbc",
+			"name": "system 3",
+			"save-password": true,
+			"show-system-objects": true,
+			"read-only": false,
+			"configuration": {
+				"host": "localhost",
+				"port": "26257",
+				"database": "system",
+				"url": "jdbc:postgresql://localhost:26257/system",
+				"type": "dev",
+				"properties": {
+					"connectTimeout": "20",
+					"loginTimeout": "20"
+				},
+				"provider-properties": {
+					"@dbeaver-show-non-default-db@": "true",
+					"@dbeaver-show-template-db@": "false",
+					"@dbeaver-show-unavailable-db@": "false",
+					"postgresql.dd.plain.string": "false",
+					"postgresql.dd.tag.string": "false"
+				},
+				"auth-model": "native",
+				"handlers": {}
+			}
+		},
+		"postgres-cockroach-jdbc-174e1350179-7556907ccf0071ba": {
+			"provider": "postgresql",
+			"driver": "postgres-cockroach-jdbc",
+			"name": "dare",
+			"save-password": true,
+			"show-system-objects": true,
+			"read-only": false,
+			"configuration": {
+				"host": "localhost",
+				"port": "26257",
+				"database": "dare",
+				"url": "jdbc:postgresql://localhost:26257/dare",
+				"type": "dev",
+				"properties": {
+					"connectTimeout": "20",
+					"loginTimeout": "20"
+				},
+				"provider-properties": {
+					"@dbeaver-show-non-default-db@": "true",
+					"@dbeaver-show-template-db@": "false",
+					"@dbeaver-show-unavailable-db@": "false",
+					"postgresql.dd.plain.string": "false",
+					"postgresql.dd.tag.string": "false"
+				},
+				"auth-model": "native",
+				"handlers": {}
+			}
+		}
+	},
+	"connection-types": {
+		"dev": {
+			"name": "Development",
+			"color": "255,255,255",
+			"description": "Regular development database",
+			"auto-commit": true,
+			"confirm-execute": false,
+			"confirm-data-change": false
+		}
+	}
+}
