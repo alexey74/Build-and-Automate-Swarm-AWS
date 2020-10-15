@@ -58,8 +58,11 @@
         #- "{{prefix}}-docker-ucp"
         tags:
           - job: "{{prefix}}_swarm_manager"
-          - Name: "{{prefix}}-swarm-manager"
-          - Billing: "{{prefix}}_IT"
+            Name: "{{prefix}}-swarm-manager"
+            Billing: "{{prefix}}_IT"
+            propagate_at_launch: yes
+          - "{{ ec2_instance_tags | combine({'propagate_at_launch': true}) }}"
+          
       when: hostvars['localhost']['asg_exists'] == false
 
     - ec2_asg:
@@ -75,8 +78,11 @@
         region: "{{ region }}"
         tags:
           - job: "{{prefix}}_swarm_worker"
-          - Name: "{{prefix}}-swarm-worker"
-          - Billing: "{{prefix}}_IT"
+            Name: "{{prefix}}-swarm-worker"
+            Billing: "{{prefix}}_IT"
+            propagate_at_launch: yes            
+          - "{{ ec2_instance_tags | combine({'propagate_at_launch': true}) }}"            
+            
       when: hostvars['localhost']['asg_exists'] == false
 
 #     - ec2_asg:
