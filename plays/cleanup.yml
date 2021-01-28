@@ -99,7 +99,7 @@
 
     # del s3 bucket
     - s3_bucket:
-          name: "{{ prefix }}-swarm-storage"
+          name: "{{ prefix }}-swarm-storage-{{ suffix }}"
           state: absent
           force: yes
           

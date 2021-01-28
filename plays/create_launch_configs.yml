@@ -83,14 +83,17 @@
         - default_node.instances[0].instance_id is defined
         - default_node.instances[0].network_interfaces[0] is defined
         
-    # Create a simple s3 bucket
+    # Lists all s3 buckets
+    - community.aws.aws_s3_bucket_facts:
+      register: buckets_res    
+
     - s3_bucket:
-          name: "{{ prefix }}-swarm-storage"
+          name: "{{ prefix }}-swarm-storage-{{ suffix }}"
           state: present
           tags: "{{ s3_bucket_tags | default({}) }}"
-          
-    # Create nodes if they don't exist
+      when: not (buckets_res['buckets'] | selectattr('name', '==', '%s-swarm-storage-%s' % (prefix, suffix)))
 
+    # Create nodes if they don't exist
 
     - name: "Create a role and attach a managed policy"
       iam_role:
@@ -132,15 +135,22 @@
                            "s3:GetEncryptionConfiguration" 
                        ],
                        "Resource": [
-                           "arn:aws:s3:::{{ prefix }}-swarm-storage/*",
-                           "arn:aws:s3:::{{ prefix }}-swarm-storage" 
+                           "arn:aws:s3:::{{ prefix }}-swarm-storage-{{ suffix }}/*",
+                           "arn:aws:s3:::{{ prefix }}-swarm-storage-{{ suffix }}" 
                        ]
                    }
                ]
            }          
           state: present
 
-   
+    - name: Pause for 30 sec to wait for instance profile
+      pause:
+          seconds: 30
+
+    - name: create a new ec2 key pair, returns generated private key
+      amazon.aws.ec2_key:
+         name: "{{ key }}"
+         key_material: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_rsa.pub') }}"
 
     - name: Create default node Image
       vars:
@@ -219,7 +229,7 @@
   vars:
     ansible_python_interpreter: /usr/bin/python
     ansible_connection: aws_ssm
-    ansible_aws_ssm_bucket_name: "{{ prefix }}-swarm-storage"
+    ansible_aws_ssm_bucket_name: "{{ prefix }}-swarm-storage-{{ suffix }}"
     ansible_aws_ssm_region: "{{ region }}"
     ansible_aws_ssm_timeout: 600
   tasks:
@@ -252,11 +262,22 @@
           - wget
           - git
           - fail2ban
+          - python-pip
 
     - yum:
         name: docker
         update_cache: yes
-    
+      
+    - pip:
+         name: 
+         - docker
+         - jsondiff
+      
+    -  name: Setup bash completions
+       shell: curl 
+         https://raw.githubusercontent.com/docker/docker-ce/master/components/cli/contrib/completion/bash/docker 
+         -o /etc/bash_completion.d/docker.sh
+
     - shell: systemctl daemon-reload 
         && systemctl enable docker
         && systemctl start docker
